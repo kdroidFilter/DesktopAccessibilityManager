@@ -63,8 +63,11 @@ if the native call fails.
 - Announcements are most reliable when your app window is in the foreground.
 - On macOS, VoiceOver must be enabled.
 - On Windows, a screen reader (NVDA/JAWS) must be running.
-- `AnnouncementPriority.ASSERTIVE` is intended for error messages and should
-  be used sparingly so it does not overwhelm other speech output.
+- Enable `allowDesktopAccessibilityManagerLogging` to see library logs.
+- `AnnouncementPriority.ASSERTIVE` is for urgent messages (errors, blockers).
+  It may interrupt or flush current speech output on supported screen readers.
+- `AnnouncementPriority.POLITE` is for non-urgent updates. It should be queued
+  or spoken after the current speech finishes, when supported.
 - Priority mapping on macOS is best-effort and depends on OS version and
   VoiceOver configuration.
 
