@@ -7,6 +7,10 @@ import com.sun.jna.Pointer
 import com.sun.jna.platform.mac.CoreFoundation
 import com.sun.jna.ptr.IntByReference
 import io.github.kdroidfilter.accessibility.AnnouncementPriority
+import io.github.kdroidfilter.accessibility.tools.debugln
+import io.github.kdroidfilter.accessibility.tools.infoln
+import io.github.kdroidfilter.accessibility.tools.warnln
+import io.github.kdroidfilter.accessibility.tools.verboseln
 
 internal class MacAccessibilityAnnouncer : PlatformAnnouncer {
     private val coreFoundation = CoreFoundation.INSTANCE
@@ -40,15 +44,23 @@ internal class MacAccessibilityAnnouncer : PlatformAnnouncer {
     override val isSupported: Boolean = nsApplication != null
 
     override fun announce(message: String, priority: AnnouncementPriority): Boolean {
-        val nsApp = nsApplication ?: return false
+        verboseln { "Mac announcer: announce requested (priority=$priority, length=${message.length})." }
+        val nsApp = nsApplication ?: run {
+            warnln { "Mac announcer: NSApplication unavailable." }
+            return false
+        }
         val userInfo = coreFoundation.CFDictionaryCreateMutable(
             null,
             CoreFoundation.CFIndex(0),
             null,
             null,
-        ) ?: return false
+        ) ?: run {
+            warnln { "Mac announcer: failed to create CFDictionary." }
+            return false
+        }
         val announcement = CoreFoundation.CFStringRef.createCFString(message) ?: run {
             coreFoundation.CFRelease(userInfo)
+            warnln { "Mac announcer: failed to create CFString for message." }
             return false
         }
         val priorityNumber = coreFoundation.CFNumberCreate(
@@ -60,12 +72,15 @@ internal class MacAccessibilityAnnouncer : PlatformAnnouncer {
             userInfo.setValue(announcementKey, announcement)
             if (priorityNumber != null) {
                 userInfo.setValue(priorityKey, priorityNumber)
+            } else {
+                debugln { "Mac announcer: failed to create CFNumber for priority." }
             }
             appKit.NSAccessibilityPostNotificationWithUserInfo(
                 nsApp,
                 notificationName.pointer,
                 userInfo.pointer,
             )
+            infoln { "Mac announcer: announcement posted." }
             true
         } finally {
             coreFoundation.CFRelease(announcement)
