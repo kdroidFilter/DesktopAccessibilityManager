@@ -2,6 +2,7 @@ package io.github.kdroidfilter.demo.swing
 
 import io.github.kdroidfilter.accessibility.AnnouncementPriority
 import io.github.kdroidfilter.accessibility.DesktopAccessibilityManager
+import io.github.kdroidfilter.accessibility.tools.allowDesktopAccessibilityManagerLogging
 import java.awt.Component
 import javax.swing.Box
 import javax.swing.BoxLayout
@@ -12,6 +13,7 @@ import javax.swing.SwingUtilities
 import javax.swing.border.EmptyBorder
 
 fun main() {
+    allowDesktopAccessibilityManagerLogging = true
     SwingUtilities.invokeLater {
         val frame = JFrame("Accessibility demo (Swing)").apply {
             defaultCloseOperation = JFrame.EXIT_ON_CLOSE

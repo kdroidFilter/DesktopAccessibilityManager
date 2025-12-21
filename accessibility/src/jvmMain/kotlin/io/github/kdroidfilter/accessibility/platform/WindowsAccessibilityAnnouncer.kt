@@ -23,6 +23,10 @@ import com.sun.jna.ptr.IntByReference
 import com.sun.jna.ptr.PointerByReference
 import com.sun.jna.win32.StdCallLibrary
 import io.github.kdroidfilter.accessibility.AnnouncementPriority
+import io.github.kdroidfilter.accessibility.tools.debugln
+import io.github.kdroidfilter.accessibility.tools.infoln
+import io.github.kdroidfilter.accessibility.tools.warnln
+import io.github.kdroidfilter.accessibility.tools.verboseln
 
 internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
     private val uiaLibrary = NativeLibrary.getInstance("UIAutomationCore")
@@ -39,8 +43,18 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
 
     override val isSupported: Boolean = raiseNotificationEvent != null || nvdaClient != null
 
+    init {
+        if (raiseNotificationEvent == null) {
+            warnln { "Windows announcer: UIAutomation notification API unavailable." }
+        } else {
+            debugln { "Windows announcer: UIAutomation notification API loaded." }
+        }
+    }
+
     override fun announce(message: String, priority: AnnouncementPriority): Boolean {
+        verboseln { "Windows announcer: announce requested (priority=$priority, length=${message.length})." }
         if (tryNvdaAnnounce(message, priority)) {
+            infoln { "Windows announcer: announced via NVDA." }
             return true
         }
         val hrInit = Ole32.INSTANCE.CoInitializeEx(Pointer.NULL, Ole32.COINIT_MULTITHREADED)
@@ -48,14 +62,22 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
         val comInitialized = hrInitValue == COMUtils.S_OK || hrInitValue == COMUtils.S_FALSE
         val comAlreadyInitialized = hrInitValue == WinError.RPC_E_CHANGED_MODE
         if (!comInitialized && !comAlreadyInitialized) {
+            warnln { "Windows announcer: COM init failed (hr=${formatHresult(hrInitValue)})." }
             return false
         }
         try {
             if (tryJawsAnnounce(message, priority)) {
+                infoln { "Windows announcer: announced via JAWS." }
                 return true
             }
             val raiseEvent = raiseNotificationEvent ?: return false
-            return tryUiaAnnounce(raiseEvent, message, priority)
+            val uiaResult = tryUiaAnnounce(raiseEvent, message, priority)
+            if (uiaResult) {
+                infoln { "Windows announcer: announced via UIA." }
+            } else {
+                warnln { "Windows announcer: UIA announce failed." }
+            }
+            return uiaResult
         } finally {
             if (comInitialized) {
                 Ole32.INSTANCE.CoUninitialize()
@@ -64,16 +86,25 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
     }
 
     private fun tryNvdaAnnounce(message: String, priority: AnnouncementPriority): Boolean {
-        val client = nvdaClient ?: return false
+        val client = nvdaClient ?: run {
+            debugln { "Windows announcer: NVDA controller not available." }
+            return false
+        }
         return try {
             if (client.nvdaController_testIfRunning() != 0) {
+                debugln { "Windows announcer: NVDA not running." }
                 return false
             }
             if (priority == AnnouncementPriority.ASSERTIVE) {
                 client.nvdaController_cancelSpeech()
             }
-            client.nvdaController_speakText(WString(message)) == 0
+            val result = client.nvdaController_speakText(WString(message)) == 0
+            if (!result) {
+                warnln { "Windows announcer: NVDA speakText failed." }
+            }
+            result
         } catch (_: Throwable) {
+            warnln { "Windows announcer: NVDA announce threw an exception." }
             false
         }
     }
@@ -88,10 +119,12 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
             dispatchRef,
         )
         if (COMUtils.FAILED(hrCreate)) {
+            warnln { "Windows announcer: JAWS COM instance unavailable (hr=${formatHresult(hrCreate.toInt())})." }
             return false
         }
         val dispatchPtr = dispatchRef.value
         if (dispatchPtr == null || dispatchPtr == Pointer.NULL) {
+            warnln { "Windows announcer: JAWS COM pointer missing." }
             return false
         }
         val dispatch = Dispatch(dispatchPtr)
@@ -107,6 +140,7 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
                 dispIdRef,
             )
             if (COMUtils.FAILED(hrName)) {
+                warnln { "Windows announcer: JAWS SayString not available (hr=${formatHresult(hrName.toInt())})." }
                 return false
             }
             val flushVariant = Variant.VARIANT(priority == AnnouncementPriority.ASSERTIVE)
@@ -128,6 +162,7 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
                 argErr,
             )
             if (COMUtils.FAILED(hrInvoke)) {
+                warnln { "Windows announcer: JAWS SayString invoke failed (hr=${formatHresult(hrInvoke.toInt())})." }
                 return false
             }
             return result.booleanValue()
@@ -150,10 +185,12 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
             arrayOf(hwnd, providerRef),
         ) as WinNT.HRESULT
         if (COMUtils.FAILED(hrProvider)) {
+            warnln { "Windows announcer: UIA host provider unavailable (hr=${formatHresult(hrProvider.toInt())})." }
             return false
         }
         val provider = providerRef.value
         if (provider == null || provider == Pointer.NULL) {
+            warnln { "Windows announcer: UIA provider pointer missing." }
             return false
         }
         return try {
@@ -171,7 +208,11 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
                     WString("desktop.accessibility.announce"),
                 ),
             ) as WinNT.HRESULT
-            COMUtils.SUCCEEDED(hrAnnounce)
+            val success = COMUtils.SUCCEEDED(hrAnnounce)
+            if (!success) {
+                warnln { "Windows announcer: UIA notification failed (hr=${formatHresult(hrAnnounce.toInt())})." }
+            }
+            success
         } finally {
             Unknown(provider).Release()
         }
@@ -190,12 +231,19 @@ internal class WindowsAccessibilityAnnouncer : PlatformAnnouncer {
             "nvdaControllerClient32",
         )
         for (name in candidates) {
+            debugln { "Windows announcer: trying NVDA client '$name'." }
             val client = runCatching { Native.load(name, NvdaControllerClient::class.java) }.getOrNull()
             if (client != null) {
+                infoln { "Windows announcer: NVDA client '$name' loaded." }
                 return client
             }
         }
+        debugln { "Windows announcer: no NVDA client library found." }
         return null
+    }
+
+    private fun formatHresult(value: Int): String {
+        return String.format("0x%08X", value)
     }
 
     private interface NvdaControllerClient : StdCallLibrary {

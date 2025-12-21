@@ -1,6 +1,6 @@
 # Desktop Accessibility Announcer (JNA)
 
-A small JVM-only helper that provides a Compose Desktop equivalent of
+A JVM-only helper that provides a Compose Desktop equivalent of
 `LocalAccessibilityManager.announceForAccessibility()` using JNA.
 
 ## Modules
