@@ -52,8 +52,9 @@ DesktopAccessibilityManager.announceForAccessibility(
 
 - macOS: Uses `NSAccessibilityPostNotificationWithUserInfo` with
   `NSAccessibilityAnnouncementRequestedNotification`.
-- Windows: Uses UI Automation `UiaRaiseNotificationEvent` with a provider
-  created from the current foreground window (`UiaHostProviderFromHwnd`).
+- Windows: Tries the NVDA/JAWS controller APIs when available, then falls back
+  to UI Automation `UiaRaiseNotificationEvent` with a provider created from the
+  current foreground window (`UiaHostProviderFromHwnd`).
 
 The API returns `true` when a native announcement request was successfully
 submitted. It returns `false` if the platform doesn't support the request or
