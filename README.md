@@ -1,16 +1,28 @@
-# Desktop Accessibility Announcer (JNA)
+# Desktop Accessibility Announcer (JNA) 🧭
 
 A JVM-only helper that provides a Compose Desktop equivalent of
 `LocalAccessibilityManager.announceForAccessibility()` using JNA.
 
-## Modules
+## Modules 🧩
 
 - `accessibility`: core API with JNA, no Compose dependency.
 - `accessibilitycompose`: Compose-only helpers (CompositionLocal).
 - `demo-compose`: Compose Desktop demo using the CompositionLocal.
 - `demo-swing`: Swing demo without Compose.
 
-## API
+## Gradle (Kotlin DSL) 🚀
+
+```kotlin
+dependencies {
+    // Swing / core API
+    implementation("io.github.kdroidfilter:accessibility-jvm:<version>")
+
+    // Compose helpers
+    implementation("io.github.kdroidfilter:accessibility-compose-jvm:<version>")
+}
+```
+
+## API 🧪
 
 ```kotlin
 import io.github.kdroidfilter.accessibility.AnnouncementPriority
@@ -43,12 +55,12 @@ DesktopAccessibilityManager.announceForAccessibility(
 )
 ```
 
-## Demos
+## Demos 🎬
 
 - Compose demo: `./gradlew :demo-compose:run`
 - Swing demo: `./gradlew :demo-swing:run`
 
-## Behavior by platform
+## Behavior by platform 🧭
 
 - macOS: Uses `NSAccessibilityPostNotificationWithUserInfo` with
   `NSAccessibilityAnnouncementRequestedNotification`.
@@ -58,7 +70,7 @@ The API returns `true` when a native announcement request was successfully
 submitted. It returns `false` if the platform doesn't support the request or
 if the native call fails.
 
-## Usage notes
+## Usage notes 📝
 
 - Announcements are most reliable when your app window is in the foreground.
 - On macOS, VoiceOver must be enabled.
@@ -71,15 +83,15 @@ if the native call fails.
 - Priority mapping on macOS is best-effort and depends on OS version and
   VoiceOver configuration.
 
-## Manual test checklist
+## Manual test checklist ✅
 
-macOS (VoiceOver):
+macOS (VoiceOver) 🍎:
 1. Enable VoiceOver (System Settings -> Accessibility -> VoiceOver).
 2. Run the desktop demo app and focus its window.
 3. Click the \"Announce error\" button.
 4. Confirm VoiceOver speaks the error message.
 
-Windows (NVDA/JAWS):
+Windows (NVDA/JAWS) 🪟:
 1. Start NVDA or JAWS.
 2. Run the desktop demo app and focus its window.
 3. Click the \"Announce error\" button.
